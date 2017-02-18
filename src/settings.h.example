@@ -1,0 +1,8 @@
+#ifndef __SETTINGS_H
+#define __SETTINGS_H
+
+const char *SSID = "YourSSIDHere";
+const char *PASSWORD = "YourPSKHere";
+
+
+#endif
