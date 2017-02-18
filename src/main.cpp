@@ -7,7 +7,8 @@
 
 ESP8266WebServer server(80);
 
-const int LED = D1;
+const int TOGGLE = D1;
+const int STATUS_LED = D4;
 
 void handleRoot() {
 	char temp[400];
@@ -43,18 +44,25 @@ void handleNotFound() {
 }
 
 void setup() {
-	pinMode(LED, OUTPUT);
+	pinMode(TOGGLE, OUTPUT);
+	pinMode(STATUS_LED, OUTPUT);
 
 	Serial.begin(115200);
 
 	WiFi.begin(SSID, PASSWORD);
 	Serial.println("Connecting to Wifif");
 
+	bool statusLedStatus = false;
+
 	// Wait for connection
 	while (WiFi.status() != WL_CONNECTED) {
 		delay(500);
 		Serial.print(".");
+
+		digitalWrite(STATUS_LED, statusLedStatus = !statusLedStatus);
 	}
+
+	digitalWrite(STATUS_LED, LOW);
 
 	Serial.println("");
 	Serial.print("Connected to ");
@@ -67,6 +75,13 @@ void setup() {
 	}
 
 	server.on("/", handleRoot);
+	server.on("/activate", [](){
+		digitalWrite(TOGGLE, HIGH);
+		delay(500);
+		digitalWrite(TOGGLE, LOW);
+		
+		server.send(200, "application/json", "{\"status\":\"done\"}");
+	});
 	//server.on("/test.svg", drawGraph);
 	/*server.on("/inline", []() {
 		server.send(200, "text/plain", "this works as well");
