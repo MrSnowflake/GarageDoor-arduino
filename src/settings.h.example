@@ -4,5 +4,7 @@
 const char *SSID = "YourSSIDHere";
 const char *PASSWORD = "YourPSKHere";
 
+const char *MDNS_NAME = "MDNSNameHere";
+const char *OTA_PASSWORD = "OTAPasswordHere";
 
 #endif

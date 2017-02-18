@@ -2,6 +2,7 @@
 #include <WiFiClient.h>
 #include <ESP8266WebServer.h>
 #include <ESP8266mDNS.h>
+#include <ArduinoOTA.h>
 
 #include "settings.h"
 
@@ -70,9 +71,16 @@ void setup() {
 	Serial.print("IP address: ");
 	Serial.println(WiFi.localIP());
 
-	if (MDNS.begin("esp8266")) {
+	if (MDNS.begin(MDNS_NAME)) {
 		Serial.println("MDNS responder started");
 	}
+
+	ArduinoOTA.setPort(8266);
+	// Hostname defaults to esp8266-[ChipID]
+	ArduinoOTA.setHostname(MDNS_NAME);
+	// No authentication by default
+	ArduinoOTA.setPassword(OTA_PASSWORD);
+
 
 	server.on("/", handleRoot);
 	server.on("/activate", [](){
@@ -89,8 +97,11 @@ void setup() {
 	server.onNotFound(handleNotFound);
 	server.begin();
 	Serial.println("HTTP server started");
+
+	ArduinoOTA.begin();
 }
 
 void loop() {
 	server.handleClient();
+	ArduinoOTA.handle();
 }
