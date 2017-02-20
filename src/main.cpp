@@ -68,7 +68,7 @@ void setup() {
 		digitalWrite(STATUS_LED, statusLedStatus = !statusLedStatus);
 	}
 	digitalWrite(STATUS_LED, LOW);
-
+	
 	Serial.println("");
 	Serial.print("Connected to ");
 	Serial.println(SSID);
