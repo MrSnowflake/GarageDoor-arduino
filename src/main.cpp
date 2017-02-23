@@ -3,6 +3,9 @@
 #include <ESP8266WebServer.h>
 #include <ESP8266mDNS.h>
 #include <ArduinoOTA.h>
+#include <ESP8266TrueRandom.h>
+
+#include <Hash.h>
 
 #include "settings.h"
 
@@ -12,6 +15,12 @@ ESP8266WebServer server(80);
 
 const int TOGGLE = D1;
 const int STATUS_LED = D4;
+
+long nonce = -1;
+
+void updateNonce() {
+	nonce = ESP8266TrueRandom.random();
+}
 
 void handleRoot() {
 	char temp[400];
@@ -41,6 +50,68 @@ void handleRoot() {
 	server.send(200, "text/html", temp);
 }
 
+void handleNonce() {
+	char temp[400];
+
+	updateNonce();
+
+	snprintf(temp, 400,
+		"{\"nonce\":\"%lu\"}",
+		nonce
+	);
+	server.send(200, "application/json", temp);
+}
+
+void flicker(int count, int delayMs) {
+	for (int i = 0; i < count; i++) {
+		digitalWrite(STATUS_LED, LOW);
+		delay(delayMs);
+		digitalWrite(STATUS_LED, HIGH);
+		delay(delayMs);
+	}
+}
+
+void openDoor() {
+	digitalWrite(TOGGLE, HIGH);
+	
+	flicker(10, 30);
+
+	delay(100);
+
+	digitalWrite(TOGGLE, LOW);
+}
+
+void handleOpen() {
+	char temp[400];
+
+	String hashHeader = server.arg("hash");
+	snprintf(temp, 400, "%s%lu%s", SHA_PASSWORD, nonce, SHA_PASSWORD);
+
+	String hash = sha1(temp);
+
+	Serial.print("Received Hash ");
+	Serial.println(hashHeader);
+	Serial.print("Calculated Hash ");
+	Serial.println(hash);
+
+	// to prevent reuse
+	updateNonce();
+
+	if (hash.compareTo(hashHeader) == 0) {
+		Serial.println("Opening door");
+		
+		server.send(200, "application/json", "{\"status\":\"done\"}");
+
+		openDoor();
+	} else {
+		Serial.println("Incorrect hash");
+
+		server.send(401, "application/json", "{\"status\":\"error\", \"message\":\"Invalid Hash\"}");
+
+		flicker(15, 500);
+	}
+}
+
 void handleNotFound() {
 	String message = "File Not Found\n\n";
 
@@ -55,8 +126,10 @@ void setup() {
 
 	Serial.begin(115200);
 
+	updateNonce();
+
 	WiFi.begin(SSID, PASSWORD);
-	Serial.println("Connecting to Wifif");
+	Serial.println("Connecting to Wifi");
 
 	bool statusLedStatus = false;
 
@@ -87,26 +160,17 @@ void setup() {
 
 
 	server.on("/", handleRoot);
-	server.on("/activate", [](){
-		digitalWrite(TOGGLE, HIGH);
-		delay(500);
-		digitalWrite(TOGGLE, LOW);
-		
-		server.send(200, "application/json", "{\"status\":\"done\"}");
-	});
-	//server.on("/test.svg", drawGraph);
-	/*server.on("/inline", []() {
-		server.send(200, "text/plain", "this works as well");
-	});*/
+	server.on("/nonce", handleNonce);
+	server.on("/open", handleOpen);
 	server.onNotFound(handleNotFound);
 	server.begin();
 	Serial.println("HTTP server started");
 
 	ArduinoOTA.onStart([]() {
-		Serial.println("Start");
+		Serial.println("Received OTA Update.");
 	});
 	ArduinoOTA.onEnd([]() {
-		Serial.println("\nEnd");
+		Serial.println("\nOTA received restarting.");
 	});
 	ArduinoOTA.onProgress([](unsigned int progress, unsigned int total) {
 		Serial.printf("Progress: %u%%\r", (progress / (total / 100)));
